@@ -59,6 +59,9 @@
   .hero-main { padding: 24px; border-right: 1px solid var(--cd-divider); }
   .hero-label { font-size: 14px; line-height: 20px; color: var(--cd-text-secondary); font-weight: 500; }
   .hero-value { font-size: 64px; line-height: 1; font-weight: 700; margin: 8px 0 12px; }
+  .hero-note { font-size: 12px; line-height: 20px; color: var(--cd-text-muted); margin-top: 8px; }
+  .hero-split .v.missing { color: var(--cd-text-muted); }
+  .tile-unit { font-size: 14px; font-weight: 500; color: var(--cd-text-secondary); margin-left: 8px; }
   .hero-split { display: grid; grid-template-columns: repeat(3, 1fr); }
   .hero-split > div { padding: 24px 20px; border-right: 1px solid var(--cd-divider); }
   .hero-split > div:last-child { border-right: 0; }
@@ -143,6 +146,7 @@
     .brand img { width: 44px; }
     .hero-value { font-size: 52px; }
     .chart-card { padding: 16px 16px 8px; }
+    .chart-head > div, .chart-head .controls, select { min-width: 0; width: 100%; }
   }
   @media (max-width: 420px) {
     .hero-split { grid-template-columns: 1fr; }
@@ -176,26 +180,32 @@ const COLUMNS = [ // same order as WEEKLY_COLUMNS in the Apps Script (append-onl
   'podcast_7d', 'podcast_total', 'yt_views_28d', 'yt_subscribers',
   'twitter_followers', 'instagram_followers', 'twitch_followers',
   'tiktok_followers', 'facebook_followers',
+  'dojo_members', 'wix_subscribers',
 ];
 
-// fmt: 'int' | 'pct' | 'dec'. better: 'up' (higher is good) | 'down' (lower is good)
+// fmt: 'int' | 'pct' | 'dec'. better: 'up' (higher is good) | 'down' (lower is good).
+// allTime: the sheet stores an all-time total; the main number is the change since the previous row.
+// optional: the tile is hidden until the latest row has a value (manual columns).
 const METRICS = {
+  dojo_members:        { label: 'Training Program members (chessdojo.club)', fmt: 'int', better: 'up' },
+  wix_subscribers:     { label: 'Wix subscribers', fmt: 'int', better: 'up', optional: true },
+  stripe_paying:       { label: 'Paying via Stripe', fmt: 'int', better: 'up' },
   stripe_basic:        { label: 'Basic (Training Program)', fmt: 'int', better: 'up' },
   stripe_workshop:     { label: 'Workshop (Lectures Tier)', fmt: 'int', better: 'up' },
   stripe_live:         { label: 'Live classes (Game & Profile Review)', fmt: 'int', better: 'up' },
   stripe_courses_7d:   { label: 'Course purchases, last 7 days', fmt: 'int', better: 'up' },
   dojo_active:         { label: 'Active users', fmt: 'int', better: 'up' },
   dojo_pct_active:     { label: '% of subscribers active', fmt: 'pct', better: 'up' },
-  dojo_rating_gained:  { label: 'Rating points gained', fmt: 'int', better: 'up' },
+  dojo_rating_gained:  { label: 'Rating points gained', fmt: 'int', better: 'up', allTime: true },
   dojo_free_active:    { label: 'Free users active', fmt: 'int', better: 'up' },
   dojo_free_total:     { label: 'Free users total', fmt: 'int', better: 'up' },
-  dojo_conversions:    { label: 'Free to paid conversions', fmt: 'int', better: 'up' },
-  dojo_cancellations:  { label: 'Subscription cancellations', fmt: 'int', better: 'down' },
+  dojo_conversions:    { label: 'Free to paid conversions', fmt: 'int', better: 'up', allTime: true },
+  dojo_cancellations:  { label: 'Subscription cancellations', fmt: 'int', better: 'down', allTime: true },
   gsc_clicks:          { label: 'Google search clicks, 7 days', fmt: 'int', better: 'up', icon: 'gsc' },
   gsc_position:        { label: 'Avg search position, 7 days', fmt: 'dec', better: 'down', icon: 'gsc' },
   ga4_new_users:       { label: 'New website users, 7 days', fmt: 'int', better: 'up', icon: 'ga' },
   podcast_7d:          { label: 'Downloads, last 7 days', fmt: 'int', better: 'up' },
-  podcast_total:       { label: 'Total downloads', fmt: 'int', better: 'up' },
+  podcast_total:       { label: 'Total downloads', fmt: 'int', better: 'up', allTime: true },
   yt_views_28d:        { label: 'Views, last 28 days', fmt: 'int', better: 'up' },
   yt_subscribers:      { label: 'Subscribers', fmt: 'int', better: 'up' },
   twitter_followers:   { label: 'X / Twitter followers', fmt: 'int', better: 'up', icon: 'x' },
@@ -206,9 +216,10 @@ const METRICS = {
 };
 
 const GROUPS = [
-  { title: 'Stripe', icon: 'stripe', keys: ['stripe_basic', 'stripe_workshop', 'stripe_live', 'stripe_courses_7d'] },
+  { title: 'Paying via Stripe', icon: 'stripe', note: 'Wix members are not included',
+    keys: ['stripe_paying', 'stripe_basic', 'stripe_workshop', 'stripe_live', 'stripe_courses_7d'] },
   { title: 'Training Program (chessdojo.club)', icon: 'chessdojo', note: 'Active = active within the past month',
-    keys: ['dojo_active', 'dojo_pct_active', 'dojo_rating_gained', 'dojo_free_active', 'dojo_free_total', 'dojo_conversions', 'dojo_cancellations'] },
+    keys: ['dojo_members', 'wix_subscribers', 'dojo_active', 'dojo_pct_active', 'dojo_rating_gained', 'dojo_free_active', 'dojo_free_total', 'dojo_conversions', 'dojo_cancellations'] },
   { title: 'Website & search', note: 'Search Console lags 2–3 days',
     keys: ['gsc_clicks', 'gsc_position', 'ga4_new_users'] },
   { title: 'Podcast · ChessDojo Talks', icon: 'podcast', keys: ['podcast_7d', 'podcast_total'] },
@@ -287,7 +298,7 @@ function iconBadge(id, size) {
 }
 
 // ---------- State ----------
-const state = { rows: [], metric: 'stripe_basic', range: 'all', demo: false };
+const state = { rows: [], metric: 'dojo_members', range: 'all', demo: false };
 
 // ---------- Formatting ----------
 const nf0 = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
@@ -342,9 +353,15 @@ function toRecords(table) {
         const n = parseFloat(raw.replace(/[,%\s]/g, ''));
         rec[key] = raw === '' || isNaN(n) ? null : n;
       });
-      return rec;
+      return withDerived(rec);
     })
     .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function withDerived(rec) {
+  const parts = [rec.stripe_basic, rec.stripe_workshop, rec.stripe_live];
+  rec.stripe_paying = parts.every(v => v != null) ? parts.reduce((a, b) => a + b, 0) : null;
+  return rec;
 }
 
 function sheetUrl() {
@@ -372,7 +389,9 @@ function demoRows() {
       podcast_7d: w(650, 1300), podcast_total: s.ps, yt_views_28d: w(170000, 230000), yt_subscribers: s.yt,
       twitter_followers: s.x, instagram_followers: s.ig, twitch_followers: s.tw,
       tiktok_followers: s.tt, facebook_followers: s.fb,
+      dojo_members: Math.round(s.da / 0.575), wix_subscribers: i > 17 ? 401 - (19 - i) * 3 : null,
     });
+    withDerived(out[out.length - 1]);
   }
   out[out.length - 1].twitter_followers = null; out[out.length - 1].errors.twitter_followers = true;
   return out;
@@ -381,7 +400,16 @@ function demoRows() {
 // ---------- Helpers ----------
 const last = () => state.rows[state.rows.length - 1];
 const prev = () => state.rows[state.rows.length - 2];
-function series(key) { return state.rows.filter(r => r[key] != null).map(r => ({ date: r.date, v: r[key] })); }
+function rawSeries(key) { return state.rows.filter(r => r[key] != null).map(r => ({ date: r.date, v: r[key] })); }
+/** All-time metrics chart as change per row; everything else as stored. */
+function series(key) {
+  const raw = rawSeries(key);
+  if (!METRICS[key].allTime) return raw;
+  return raw.slice(1).map((p, i) => ({ date: p.date, v: p.v - raw[i].v, since: raw[i].date }));
+}
+function daysBetween(a, b) { return Math.round((new Date(b + 'T12:00:00') - new Date(a + 'T12:00:00')) / 864e5); }
+function periodLabel(from, to) { return daysBetween(from, to) === 7 ? 'this week' : `since ${fmtDate(from)}`; }
+function signed(v) { return (v > 0 ? '+' : v < 0 ? '−' : '') + nf0.format(Math.abs(v)); }
 
 function deltaHtml(key, cur, before, prevDate) {
   const m = METRICS[key] || { fmt: 'int', better: 'up' };
@@ -422,17 +450,19 @@ function render() {
   const L = last(), P = prev();
   meta.innerHTML = `Week of <strong>${fmtDate(L.date, true)}</strong><br>${state.rows.length} week${state.rows.length > 1 ? 's' : ''} of data · updated Fridays, 10:00 AM ET`;
 
-  const paying = r => (r && r.stripe_basic != null && r.stripe_workshop != null && r.stripe_live != null) ? r.stripe_basic + r.stripe_workshop + r.stripe_live : null;
-  const heroSplit = ['stripe_basic', 'stripe_workshop', 'stripe_live'].map(k => `
-      <div><div class="hero-label">${esc(METRICS[k].label)}</div><div class="v">${fmt(L[k])}</div>${P ? deltaHtml(k, L[k], P[k], P.date) : ''}</div>`).join('');
+  const heroSplit = [['stripe_paying', 'stripe'], ['wix_subscribers', null], ['dojo_active', null]].map(([k, icon]) => `
+      <div><div class="hero-label">${icon ? iconBadge(icon, 20) : ''}<span>${esc(METRICS[k].label)}</span></div>
+        ${L[k] == null && METRICS[k].optional ? '<div class="v missing">—</div><span class="delta flat">Not entered yet</span>'
+          : `<div class="v">${fmt(L[k])}</div>${P ? deltaHtml(k, L[k], P[k], P.date) : ''}`}</div>`).join('');
 
   let html = state.demo ? `<div class="demo-banner"><b>Demo mode.</b> Made-up numbers to preview the layout. Real data loads from the sheet link.</div>` : '';
   html += `
     <div class="card hero">
       <div class="hero-main">
-        <div class="hero-label">${iconBadge('stripe', 24)}<span>Paying members</span></div>
-        <div class="hero-value">${fmt(paying(L))}</div>
-        ${P ? deltaHtml('stripe_basic', paying(L), paying(P), P.date) : '<span class="delta flat">Week-over-week change shows from the second week</span>'}
+        <div class="hero-label">${iconBadge('chessdojo', 24)}<span>Training Program members (chessdojo.club)</span></div>
+        <div class="hero-value">${fmt(L.dojo_members)}</div>
+        ${P ? deltaHtml('dojo_members', L.dojo_members, P.dojo_members, P.date) : '<span class="delta flat">Week-over-week change shows from the second week</span>'}
+        <div class="hero-note">Active + inactive members on the site, incl. Wix and gifted accounts</div>
       </div>
       <div class="hero-split">${heroSplit}</div>
     </div>`;
@@ -443,7 +473,7 @@ function render() {
         <div><div class="chart-title" id="chartTitle"></div><div class="chart-sub" id="chartSub"></div></div>
         <div class="controls">
           <label class="sr" for="metricSel" style="position:absolute;left:-9999px">Metric</label>
-          <select id="metricSel">${GROUPS.map(g => `<optgroup label="${esc(g.title)}">${g.keys.map(k => `<option value="${k}"${k === state.metric ? ' selected' : ''}>${esc(METRICS[k].label)}</option>`).join('')}</optgroup>`).join('')}</select>
+          <select id="metricSel">${GROUPS.map(g => `<optgroup label="${esc(g.title)}">${g.keys.map(k => `<option value="${k}"${k === state.metric ? ' selected' : ''}>${esc(METRICS[k].label + (METRICS[k].allTime ? ' (per week)' : ''))}</option>`).join('')}</optgroup>`).join('')}</select>
           <div class="controls" role="group" aria-label="Time range">
             ${[['12', '12 weeks'], ['26', '26 weeks'], ['all', 'All']].map(([v, t]) => `<button type="button" class="chip" data-range="${v}" aria-pressed="${state.range === v}">${t}</button>`).join('')}
           </div>
@@ -456,13 +486,22 @@ function render() {
     html += `<section class="group"><div class="group-head"><h2>${g.icon ? iconBadge(g.icon, 32) : ''}<span>${esc(g.title)}</span></h2>${g.note ? `<span class="group-note">${esc(g.note)}</span>` : ''}</div><div class="tiles">`;
     g.keys.forEach(k => {
       const m = METRICS[k]; const v = L[k];
+      if (m.optional && v == null) return;
       const err = L.errors[k];
-      const valueHtml = v == null
-        ? `<div class="tile-value missing">—</div>`
-        : `<div class="tile-value">${fmt(v, m.fmt)}</div>`;
-      const foot = err ? `<span class="badge-error">Not collected this week</span>` : (P ? deltaHtml(k, v, P[k], P.date) : '');
-      html += `<button type="button" class="card tile${k === state.metric ? ' active' : ''}" data-metric="${k}" aria-label="${esc(m.label)}: ${v == null ? 'no data' : fmt(v, m.fmt)}. Show trend.">
-        <span class="tile-label">${m.icon ? iconBadge(m.icon, 24) : ''}<span>${esc(m.label)}</span></span>
+      let label = m.label, valueHtml, foot;
+      if (m.allTime && v != null && P && P[k] != null) {
+        // Main number: change since the previous row; the all-time total is the small line.
+        valueHtml = `<div class="tile-value">${signed(v - P[k])}<span class="tile-unit">${periodLabel(P.date, L.date)}</span></div>`;
+        foot = `<span class="delta flat">All time ${fmt(v)}</span>`;
+      } else {
+        if (m.allTime) label += ' (all time)';
+        valueHtml = v == null ? `<div class="tile-value missing">—</div>` : `<div class="tile-value">${fmt(v, m.fmt)}</div>`;
+        foot = m.allTime ? (v == null ? '' : '<span class="delta flat">Weekly change shows from next Friday</span>')
+          : (P ? deltaHtml(k, v, P[k], P.date) : '');
+      }
+      if (err) foot = `<span class="badge-error">Not collected this week</span>`;
+      html += `<button type="button" class="card tile${k === state.metric ? ' active' : ''}" data-metric="${k}" aria-label="${esc(label)}: ${v == null ? 'no data' : fmt(v, m.fmt)}. Show trend.">
+        <span class="tile-label">${m.icon ? iconBadge(m.icon, 24) : ''}<span>${esc(label)}</span></span>
         <span class="tile-row">${valueHtml}${sparkSvg(k)}</span>
         <span class="tile-foot">${foot}</span></button>`;
     });
@@ -470,7 +509,7 @@ function render() {
   });
 
   html += `<details class="card table-card"><summary>All weeks (table)</summary><div class="table-scroll"><table>
-    <thead><tr><th>Week</th>${COLUMNS.slice(1).map(k => `<th>${esc(METRICS[k].label)}</th>`).join('')}</tr></thead>
+    <thead><tr><th>Week</th>${COLUMNS.slice(1).map(k => `<th>${esc(METRICS[k].label + (METRICS[k].allTime ? ' (all time)' : ''))}</th>`).join('')}</tr></thead>
     <tbody>${state.rows.slice().reverse().map(r => `<tr><td>${fmtDate(r.date, true)}</td>${COLUMNS.slice(1).map(k => r.errors[k] ? '<td class="err">error</td>' : `<td>${fmt(r[k], METRICS[k].fmt)}</td>`).join('')}</tr>`).join('')}</tbody>
   </table></div></details>`;
 
@@ -478,6 +517,9 @@ function render() {
     <li>A new row is added every Friday at 10:00 AM US Eastern. Week-over-week changes compare with the previous Friday.</li>
     <li>Search Console data lags 2–3 days, so Friday's numbers cover roughly the week up to Wednesday.</li>
     <li>"Active" on chessdojo.club means active within the past month. YouTube reports subscriber counts rounded.</li>
+    <li>About 400 members still pay through Wix (old site). The site only marks Wix cancellations on the 1st of each month or when the user logs in, so the chessdojo.club count can run higher than Stripe + Wix. 25-40 accounts are gifted.</li>
+    <li>Rating points, conversions, cancellations and podcast downloads are stored as all-time totals. From the second week the big number is the change since the previous Friday, with the all-time total underneath.</li>
+    <li>Stripe members are subscriptions that are active, trialing or past due (card failed, access kept). Canceled, unpaid and incomplete ones are not counted.</li>
     <li>If a source fails on a Friday, that cell shows "Not collected this week" until it's filled in by hand.</li>
   </ul></div>`;
 
@@ -497,8 +539,10 @@ function drawChart() {
   const tip = document.getElementById('tip');
   const m = METRICS[state.metric];
   let pts = series(state.metric);
+  let title = m.label + (m.allTime ? ', change per week' : '');
+  if (m.allTime && pts.length < 2) { pts = rawSeries(state.metric); title = m.label + ' (all time)'; }
   if (state.range !== 'all') pts = pts.slice(-Number(state.range));
-  document.getElementById('chartTitle').textContent = m.label;
+  document.getElementById('chartTitle').textContent = title;
   document.getElementById('chartSub').textContent = pts.length
     ? `${pts.length} week${pts.length > 1 ? 's' : ''} · ${fmtDate(pts[0].date)} – ${fmtDate(pts[pts.length - 1].date)}${m.better === 'down' ? ' · lower is better' : ''}`
     : 'No data yet';
