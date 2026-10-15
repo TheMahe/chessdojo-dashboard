@@ -171,6 +171,7 @@ const COLUMNS = [ // same order as WEEKLY_COLUMNS in the Apps Script (append-onl
   'dojo_conversions', 'dojo_cancellations', 'gsc_clicks', 'gsc_position', 'ga4_new_users',
   'podcast_7d', 'podcast_total', 'yt_views_28d', 'yt_subscribers',
   'twitter_followers', 'instagram_followers', 'twitch_followers',
+  'tiktok_followers', 'facebook_followers',
 ];
 
 // fmt: 'int' | 'pct' | 'dec'. better: 'up' (higher is good) | 'down' (lower is good)
@@ -196,6 +197,8 @@ const METRICS = {
   twitter_followers:   { label: 'X / Twitter followers', fmt: 'int', better: 'up' },
   instagram_followers: { label: 'Instagram followers', fmt: 'int', better: 'up' },
   twitch_followers:    { label: 'Twitch followers', fmt: 'int', better: 'up' },
+  tiktok_followers:    { label: 'TikTok followers', fmt: 'int', better: 'up' },
+  facebook_followers:  { label: 'Facebook followers', fmt: 'int', better: 'up' },
 };
 
 const GROUPS = [
@@ -207,7 +210,7 @@ const GROUPS = [
   { title: 'Podcast · ChessDojo Talks', keys: ['podcast_7d', 'podcast_total'] },
   { title: 'YouTube', note: 'YouTube rounds subscriber counts',
     keys: ['yt_views_28d', 'yt_subscribers'] },
-  { title: 'Socials', keys: ['twitter_followers', 'instagram_followers', 'twitch_followers'] },
+  { title: 'Socials', keys: ['twitter_followers', 'instagram_followers', 'twitch_followers', 'tiktok_followers', 'facebook_followers'] },
 ];
 
 // ---------- State ----------
@@ -280,13 +283,13 @@ function sheetUrl() {
 
 function demoRows() {
   const out = []; const start = new Date('2026-06-05T12:00:00');
-  let s = { b: 1150, w: 31, l: 26, da: 980, df: 1010, dft: 20800, rg: 110000, cv: 2700, cn: 2860, ps: 560000, yt: 104000, x: 8150, ig: 5380, tw: 33100 };
+  let s = { b: 1150, w: 31, l: 26, da: 980, df: 1010, dft: 20800, rg: 110000, cv: 2700, cn: 2860, ps: 560000, yt: 104000, x: 8150, ig: 5380, tw: 33100, tt: 980, fb: 815 };
   for (let i = 0; i < 20; i++) {
     const d = new Date(start.getTime() + i * 7 * 864e5);
     const w = (a, b) => Math.round(a + Math.random() * (b - a));
     s.b += w(-2, 12); s.w += w(-1, 2); s.l += w(-1, 1); s.da += w(-15, 20); s.df += w(-20, 25); s.dft += w(60, 140);
     s.rg += w(500, 1400); s.cv += w(5, 14); s.cn += w(4, 12); s.ps += w(900, 1600); s.yt += w(0, 1) * 1000;
-    s.x += w(-5, 25); s.ig += w(5, 30); s.tw += w(5, 40);
+    s.x += w(-5, 25); s.ig += w(5, 30); s.tw += w(5, 40); s.tt += w(0, 12); s.fb += w(0, 3);
     out.push({
       date: d.toISOString().slice(0, 10), errors: {},
       stripe_basic: s.b, stripe_workshop: s.w, stripe_live: s.l, stripe_courses_7d: w(0, 4),
@@ -295,6 +298,7 @@ function demoRows() {
       gsc_clicks: w(780, 980), gsc_position: +(6.5 + Math.random()).toFixed(1), ga4_new_users: w(1900, 2400),
       podcast_7d: w(650, 1300), podcast_total: s.ps, yt_views_28d: w(170000, 230000), yt_subscribers: s.yt,
       twitter_followers: s.x, instagram_followers: s.ig, twitch_followers: s.tw,
+      tiktok_followers: s.tt, facebook_followers: s.fb,
     });
   }
   out[out.length - 1].twitter_followers = null; out[out.length - 1].errors.twitter_followers = true;
